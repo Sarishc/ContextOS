@@ -98,10 +98,11 @@ export class AgentService {
     toolResults?: ToolResult[];
     finalResponse?: string;
   }> {
+    // Creating a fresh instance to ensure correct API key usage
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-3-pro-preview';
     
-    // 1. Initial Call to model with Thinking enabled
+    // 1. Initial Call: Decide whether to act or answer
     const response = await ai.models.generateContent({
       model,
       contents: [
@@ -122,7 +123,7 @@ export class AgentService {
       },
     });
 
-    // 2. Handle Function Calls if any
+    // 2. Handle Action (Tool Call)
     if (response.functionCalls && response.functionCalls.length > 0) {
       const toolResults: ToolResult[] = response.functionCalls.map(call => ({
         name: call.name,
@@ -131,7 +132,7 @@ export class AgentService {
         result: this.executeTool(call.name, call.args)
       }));
 
-      // 3. Continue conversation with tool outputs
+      // 3. Final Call: Integrate tool results into a human-readable response
       const finalResponse = await ai.models.generateContent({
         model,
         contents: [
@@ -165,6 +166,10 @@ export class AgentService {
     return { text: response.text };
   }
 
+  /**
+   * Mock tool execution logic. 
+   * In a real FastAPI setup, these would be replaced by actual API calls.
+   */
   private executeTool(name: string, args: any): any {
     switch (name) {
       case 'search_documents':
@@ -176,23 +181,30 @@ export class AgentService {
 
       case 'create_jira_ticket':
         const newId = `ENG-${Math.floor(Math.random() * 900) + 500}`;
-        return { success: true, ticketId: newId, message: `Successfully created ticket ${newId}.` };
+        // Simulation of a successful database write
+        return { success: true, ticketId: newId, status: "Created", timestamp: new Date().toISOString() };
 
       case 'run_sql_query':
         const query = (args.query || '').toLowerCase();
         if (query.includes('latency')) {
-          return this.state.metrics.map(m => ({ time: m.timestamp.split('T')[1].substring(0, 5), latency_ms: Math.round(m.api_latency_ms) }));
+          return this.state.metrics.map(m => ({ 
+            timestamp: m.timestamp, 
+            latency_ms: m.api_latency_ms 
+          }));
         }
         if (query.includes('error')) {
-          return this.state.metrics.map(m => ({ time: m.timestamp.split('T')[1].substring(0, 5), error_pct: m.error_rate_pct.toFixed(2) }));
+          return this.state.metrics.map(m => ({ 
+            timestamp: m.timestamp, 
+            error_rate: m.error_rate_pct 
+          }));
         }
-        return this.state.metrics.slice(-5).map(m => ({ time: m.timestamp, latency: Math.round(m.api_latency_ms), errors: m.error_rate_pct.toFixed(2) }));
+        return this.state.metrics.slice(-5);
 
       case 'post_slack_summary':
-        return { success: true, status: `Notification sent to ${args.channel}.` };
+        return { success: true, message: `Successfully posted to ${args.channel}` };
 
       default:
-        return { error: 'Unknown tool' };
+        return { error: `Tool ${name} is not implemented yet.` };
     }
   }
 }
