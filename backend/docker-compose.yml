@@ -1,0 +1,149 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: contextos-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-contextos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contextos_password}
+      POSTGRES_DB: ${POSTGRES_DB:-contextos_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contextos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contextos-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: contextos-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contextos-network
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contextos-api
+    environment:
+      APP_NAME: ${APP_NAME:-ContextOS Backend}
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-True}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-contextos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contextos_password}
+      POSTGRES_DB: ${POSTGRES_DB:-contextos_db}
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000"]}
+      
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./main.py:/app/main.py
+      - ./data:/app/data
+      - rag_models:/root/.cache/torch
+    networks:
+      - contextos-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contextos-celery-worker
+    environment:
+      APP_NAME: ${APP_NAME:-ContextOS Backend}
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-contextos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contextos_password}
+      POSTGRES_DB: ${POSTGRES_DB:-contextos_db}
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    networks:
+      - contextos-network
+    command: celery -A app.services.celery_app worker --loglevel=info --concurrency=2
+
+  # Flower - Celery Monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contextos-flower
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - contextos-network
+    command: celery -A app.services.celery_app flower --port=5555
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rag_models:
+    driver: local
+
+networks:
+  contextos-network:
+    driver: bridge
+
