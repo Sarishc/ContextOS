@@ -1,38 +1,22 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import DataViewer from './components/DataViewer';
-import { 
-  MOCK_DOCUMENTS, 
-  MOCK_TICKETS, 
-  MOCK_SLACK, 
-  MOCK_METRICS 
-} from './constants';
-import { AppState, ChatMessage, Priority, JiraTicket, SlackMessage } from './types';
-import { AgentService, ToolResult } from './services/geminiService';
-import { Content } from '@google/genai';
+import { ChatMessage } from './types';
+import { apiService } from './services/apiService';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('chat');
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('context-os-state');
-    return saved ? JSON.parse(saved) : {
-      documents: MOCK_DOCUMENTS,
-      tickets: MOCK_TICKETS,
-      messages: MOCK_SLACK,
-      metrics: MOCK_METRICS
-    };
-  });
-  
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  // Sync state to local storage to simulate persistence during development
+  // Check backend health on mount
   useEffect(() => {
-    localStorage.setItem('context-os-state', JSON.stringify(state));
-  }, [state]);
-
-  const agent = useMemo(() => new AgentService(state), [state]);
+    apiService.healthCheck()
+      .then(() => setBackendStatus('online'))
+      .catch(() => setBackendStatus('offline'));
+  }, []);
 
   const handleSendMessage = async (text: string) => {
     const newUserMsg: ChatMessage = {
@@ -45,76 +29,41 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const history: Content[] = chatMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-      const response = await agent.processMessage(text, history);
+      const response = await apiService.query(text);
       
-      if (response.toolResults) {
-        response.toolResults.forEach((tr: ToolResult) => {
-          if (tr.name === 'create_jira_ticket' && tr.result.success) {
-            const newTicket: JiraTicket = {
-              id: tr.result.ticketId,
-              title: tr.args.title || 'New Task',
-              description: tr.args.description || 'Created via ContextOS Agent',
-              priority: (tr.args.priority as Priority) || Priority.MEDIUM,
-              status: 'To Do'
-            };
-            setState(prev => ({
-              ...prev,
-              tickets: [newTicket, ...prev.tickets]
-            }));
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.response,
+        toolCalls: response.tool_calls,
+        sources: response.sources,
+        tokens: response.tokens_used,
+        cost: response.cost,
+        latency: response.latency_ms
+      };
+      
+      setChatMessages(prev => [...prev, assistantMsg]);
+
+      // Switch to appropriate tab if actions were taken
+      if (response.tool_calls) {
+        response.tool_calls.forEach(call => {
+          if (call.name === 'create_jira_ticket') {
             setActiveTab('jira');
-          }
-          if (tr.name === 'post_slack_summary' && tr.result.success) {
-            const newMessage: SlackMessage = {
-              id: `slack-${Date.now()}`,
-              channel: tr.args.channel || '#general',
-              user: 'ContextOS Bot',
-              text: tr.args.message || '',
-              timestamp: new Date().toISOString()
-            };
-            setState(prev => ({
-              ...prev,
-              messages: [newMessage, ...prev.messages]
-            }));
+          } else if (call.name === 'post_slack_summary') {
             setActiveTab('slack');
           }
         });
-
-        const assistantMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response.finalResponse || 'Action completed successfully.',
-          toolCalls: response.toolResults
-        };
-        setChatMessages(prev => [...prev, assistantMsg]);
-      } else {
-        const assistantMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: response.text || 'I have completed your request.'
-        };
-        setChatMessages(prev => [...prev, assistantMsg]);
       }
     } catch (error: any) {
       console.error('Error in agent response:', error);
-      
-      // Handle potential API key errors as per guidelines
-      if (error?.message?.includes('Requested entity was not found')) {
-        // In a real environment, we might call window.aistudio.openSelectKey() here
-        // but for now we'll just log it.
-        console.warn('Potential API key issue detected.');
-      }
 
       const errorMsg: ChatMessage = {
         id: (Date.now() + 2).toString(),
         role: 'assistant',
-        content: 'I encountered an error processing your request. Please check your connectivity and try again.'
+        content: `Error: ${error.message}. Please ensure the backend is running at ${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`
       };
       setChatMessages(prev => [...prev, errorMsg]);
+      setBackendStatus('offline');
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +71,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} backendStatus={backendStatus} />
       <main className="flex-1 flex overflow-hidden">
         <div className="flex-1 p-6 flex flex-col min-w-0 overflow-hidden">
           <ChatInterface 
@@ -131,7 +80,7 @@ const App: React.FC = () => {
             isLoading={isLoading} 
           />
         </div>
-        <DataViewer tab={activeTab} state={state} />
+        <DataViewer tab={activeTab} />
       </main>
     </div>
   );

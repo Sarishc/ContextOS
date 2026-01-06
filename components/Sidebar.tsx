@@ -13,15 +13,13 @@ import {
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  backendStatus: 'online' | 'offline' | 'checking';
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backendStatus }) => {
   const navItems = [
     { id: 'chat', label: 'Agent Console', icon: Terminal },
-    { id: 'docs', label: 'Knowledge Base', icon: FileText },
-    { id: 'jira', label: 'Engineering Board', icon: Trello },
-    { id: 'slack', label: 'Slack Feeds', icon: Hash },
-    { id: 'metrics', label: 'Live Metrics', icon: Activity },
+    { id: 'metrics', label: 'Dashboard', icon: Activity },
   ];
 
   return (
@@ -53,11 +51,21 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
       <div className="p-4 mt-auto">
         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">System Status</span>
+            <div className={`w-2 h-2 rounded-full ${
+              backendStatus === 'online' ? 'bg-emerald-500 animate-pulse' :
+              backendStatus === 'offline' ? 'bg-rose-500' :
+              'bg-amber-500 animate-pulse'
+            }`} />
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Backend</span>
           </div>
-          <div className="text-sm text-slate-300">All systems operational</div>
-          <div className="mt-2 text-[10px] text-slate-500 font-mono">NODE_ENV: production</div>
+          <div className="text-sm text-slate-300">
+            {backendStatus === 'online' ? 'Connected' :
+             backendStatus === 'offline' ? 'Offline' :
+             'Checking...'}
+          </div>
+          <div className="mt-2 text-[10px] text-slate-500 font-mono">
+            {import.meta.env.VITE_API_URL || 'http://localhost:8000'}
+          </div>
         </div>
       </div>
     </div>

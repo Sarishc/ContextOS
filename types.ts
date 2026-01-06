@@ -36,10 +36,29 @@ export interface SQLMetric {
   request_count: number;
 }
 
+export interface Source {
+  document_id: string;
+  title: string;
+  content: string;
+  chunk_id: string;
+  score: number;
+  metadata?: Record<string, any>;
+}
+
+export interface ToolCall {
+  name: string;
+  args: Record<string, any>;
+  result: any;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
-  toolCalls?: any[];
+  toolCalls?: ToolCall[];
+  sources?: Source[];
+  tokens?: number;
+  cost?: number;
+  latency?: number;
   id: string;
 }
 

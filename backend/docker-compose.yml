@@ -66,6 +66,12 @@ services:
       
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000"]}
       
+      # Gemini AI Configuration
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-pro}
+      GEMINI_TEMPERATURE: ${GEMINI_TEMPERATURE:-0.0}
+      GEMINI_MAX_TOKENS: ${GEMINI_MAX_TOKENS:-2048}
+      
       HOST: 0.0.0.0
       PORT: 8000
     ports:

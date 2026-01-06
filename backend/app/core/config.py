@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     PORT: int = 8000
     WORKERS: int = 4
     
+    # Gemini AI
+    GEMINI_API_KEY: str = "your-gemini-api-key"
+    GEMINI_MODEL: str = "gemini-pro"
+    GEMINI_TEMPERATURE: float = 0.0  # Deterministic
+    GEMINI_MAX_TOKENS: int = 2048
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

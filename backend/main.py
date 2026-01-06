@@ -73,6 +73,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add observability middleware
+from app.core.middleware import ObservabilityMiddleware
+app.add_middleware(ObservabilityMiddleware)
+
+# Add rate limiting
+from app.core.rate_limit import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # Exception handlers
 @app.exception_handler(AppException)

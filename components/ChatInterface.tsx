@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User, ChevronRight, CheckCircle2, Terminal as TerminalIcon } from 'lucide-react';
+import { Send, Loader2, Bot, User, ChevronRight, CheckCircle2, Terminal as TerminalIcon, FileText, DollarSign, Clock } from 'lucide-react';
 import { ChatMessage } from '../types';
 
 interface ChatInterfaceProps {
@@ -91,13 +91,67 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                 {msg.content}
               </div>
 
-              {msg.toolCalls && msg.toolCalls.map((call, idx) => (
-                <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-xs font-medium">
-                  <TerminalIcon className="w-3.5 h-3.5" />
-                  <span>Executed: <span className="font-mono">{call.name}</span></span>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+              {msg.toolCalls && msg.toolCalls.length > 0 && (
+                <div className="space-y-2">
+                  {msg.toolCalls.map((call, idx) => (
+                    <div key={idx} className="flex flex-col gap-1 px-3 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-xs">
+                      <div className="flex items-center gap-2 font-medium">
+                        <TerminalIcon className="w-3.5 h-3.5" />
+                        <span>Executed: <span className="font-mono">{call.name}</span></span>
+                        <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />
+                      </div>
+                      {Object.keys(call.args).length > 0 && (
+                        <div className="text-[10px] text-emerald-600 pl-6">
+                          {Object.entries(call.args).map(([key, value]) => (
+                            <div key={key}>
+                              <span className="font-mono">{key}:</span> {String(value).substring(0, 50)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {msg.sources && msg.sources.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Sources:</div>
+                  {msg.sources.slice(0, 3).map((source, idx) => (
+                    <div key={idx} className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl text-xs">
+                      <FileText className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{source.title}</div>
+                        <div className="text-[10px] text-blue-600 line-clamp-2">{source.content}</div>
+                        <div className="text-[9px] text-blue-500 mt-1">Score: {source.score.toFixed(3)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(msg.tokens || msg.cost || msg.latency) && (
+                <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                  {msg.tokens && (
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      {msg.tokens} tokens
+                    </span>
+                  )}
+                  {msg.cost && (
+                    <span className="flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      ${msg.cost.toFixed(4)}
+                    </span>
+                  )}
+                  {msg.latency && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {msg.latency.toFixed(0)}ms
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}

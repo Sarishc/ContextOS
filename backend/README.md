@@ -128,6 +128,17 @@ backend/
 - `GET /api/v1/health/ready` - Readiness check (DB + Redis)
 - `GET /api/v1/health/live` - Liveness check
 
+### Observability & Metrics
+
+- `GET /api/v1/metrics` - Prometheus metrics export
+- `GET /api/v1/usage` - Usage statistics with details
+- `GET /api/v1/usage/summary` - High-level usage stats
+- `GET /api/v1/usage/cache` - Cache performance metrics
+- `GET /api/v1/usage/cost` - Cost breakdown and estimates
+- `POST /api/v1/usage/cache/clear` - Clear query cache
+
+**See [OBSERVABILITY.md](OBSERVABILITY.md) for detailed documentation**
+
 ### Background Tasks
 
 - `POST /api/v1/tasks/example` - Create example task
@@ -144,6 +155,23 @@ backend/
 - `GET /api/v1/rag/stats` - Get RAG statistics
 
 **See [RAG_PIPELINE.md](RAG_PIPELINE.md) for detailed documentation**
+
+### AI Agent (Gemini-Powered)
+
+- `POST /api/v1/agent/query` - Query Gemini agent with RAG context
+- `POST /api/v1/agent/chat` - Chat with conversational context
+- `GET /api/v1/agent/tools` - List available tools
+- `GET /api/v1/gemini/token-stats` - Get token usage statistics
+- `GET /api/v1/gemini/tools` - List Gemini tools
+- `GET /api/v1/gemini/health` - Gemini agent health
+
+**Tools Available:**
+- Knowledge base search
+- Jira ticket operations
+- Slack message operations
+- Safe SQL queries
+
+**See [GEMINI_INTEGRATION.md](GEMINI_INTEGRATION.md) for detailed documentation**
 
 ## Development
 
