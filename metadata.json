@@ -1,0 +1,5 @@
+{
+  "name": "ContextOS AI Assistant",
+  "description": "An internal operations AI agent for startups that connects to documentation, ticketing, messaging, and database metrics to streamline workflows.",
+  "requestFramePermissions": []
+}
